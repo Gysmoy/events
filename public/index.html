@@ -174,7 +174,7 @@
                 <div class="filter-input">
                     <input type="text" placeholder="Clave" class="filter-key">
                     <input type="text" placeholder="Valor" class="filter-value">
-                    <button onclick="removeFilterInput(this)">❌</button>
+                    <button onclick="removeFilterInput(this)" style="width: max-content;">❌</button>
                 </div>
             </div>
 
@@ -368,7 +368,7 @@
             div.innerHTML = `
         <input type="text" placeholder="Clave" class="filter-key">
         <input type="text" placeholder="Valor" class="filter-value">
-        <button onclick="removeFilterInput(this)">❌</button>
+        <button onclick="removeFilterInput(this)" style="width: max-content;">❌</button>
     `
             container.appendChild(div)
         }
