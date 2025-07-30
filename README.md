@@ -1,160 +1,107 @@
-# Native WebSocket Filter Service
+# WebSocket Filter Service
 
-Servicio backend en Node.js con WebSockets nativos que implementa un sistema de filtros para notificaciones dirigidas.
+Servicio backend en Node.js con Socket.IO que implementa un sistema de filtros para notificaciones dirigidas.
 
 ## Características
 
-- ✅ WebSockets nativos (sin librerías externas)
+- ✅ Conexiones WebSocket con Socket.IO
 - ✅ Sistema de filtros clave-valor
 - ✅ Notificaciones dirigidas basadas en filtros
 - ✅ API REST para enviar notificaciones
-- ✅ Cliente web de prueba incluido
-- ✅ Estadísticas de conexiones en tiempo real
+- ✅ Estadísticas de conexiones
+- ✅ Actualización dinámica de filtros
 
 ## Instalación
 
-```bash
+\`\`\`bash
 npm install
-```
+\`\`\`
 
 ## Uso
 
 ### Iniciar el servidor
 
-```bash
+\`\`\`bash
 npm start
 # o para desarrollo
 npm run dev
-```
+\`\`\`
 
-### Abrir cliente de prueba
+### Conectar un cliente por path
 
-Visita: http://localhost:3000
+\`\`\`javascript
+const io = require('socket.io-client');
+// Conectar al servicio específico
+const socket = io('http://localhost:3000/orders');
 
-### Conectar cliente programáticamente
+// Registrar filtros adicionales (el service ya está implícito)
+socket.emit('register_filters', {
+  business_id: 1,
+  user_id: 123,
+  user_type: 'admin'
+});
 
-```javascript
-const ws = new WebSocket('ws://localhost:3000');
+// Escuchar eventos específicos
+socket.on('notification', (data) => {
+  console.log('Notificación:', data);
+});
 
-ws.onopen = function () {
-  // Registrar filtros
-  ws.send(
-    JSON.stringify({
-      type: 'register_filters',
-      data: {
-        business_id: 1,
-        service_id: 2,
-        user_type: 'admin',
-      },
-    })
-  );
-};
+socket.on('message', (data) => {
+  console.log('Mensaje:', data);
+});
+\`\`\`
 
-ws.onmessage = function (event) {
-  const message = JSON.parse(event.data);
-  if (message.type === 'notification') {
-    console.log('Notificación:', message.data);
-  }
-};
-```
+### Enviar eventos
 
-### Enviar notificaciones
-
-```bash
-curl -X POST http://localhost:3000/notify \\
-  -H "Content-Type: application/json" \\
+\`\`\`bash
+curl -X POST http://localhost:3000/emit \
+  -H "Content-Type: application/json" \
   -d '{
-    "filters": {"business_id": 1, "service_id": 2},
-    "message": "Nuevo pedido recibido",
-    "data": {"orderId": 12345}
+    "service": "orders",
+    "filters": {"business_id": 1},
+    "eventType": "notification",
+    "data": {"title": "Nuevo pedido", "orderId": 12345}
   }'
-```
+\`\`\`
 
-## Protocolo WebSocket
+## API Endpoints
 
-### Mensajes Cliente → Servidor
-
-```javascript
-// Registrar filtros
-{
-  "type": "register_filters",
-  "data": {"business_id": 1, "service_id": 2}
-}
-
-// Actualizar filtros
-{
-  "type": "update_filters",
-  "data": {"business_id": 1, "service_id": 3}
-}
-
-// Obtener filtros actuales
-{
-  "type": "get_filters",
-  "data": {}
-}
-
-// Ping
-{
-  "type": "ping",
-  "data": {}
-}
-```
-
-### Mensajes Servidor → Cliente
-
-```javascript
-// Conexión establecida
-{
-  "type": "connected",
-  "data": {"clientId": "abc123"},
-  "timestamp": "2024-01-01T12:00:00.000Z"
-}
-
-// Notificación
-{
-  "type": "notification",
-  "data": {
-    "message": "Nuevo pedido",
-    "data": {"orderId": 123},
-    "filters": {"business_id": 1}
-  },
-  "timestamp": "2024-01-01T12:00:00.000Z"
-}
-
-// Error
-{
-  "type": "error",
-  "data": {"message": "Filtros inválidos"},
-  "timestamp": "2024-01-01T12:00:00.000Z"
-}
-```
-
-## API REST
-
-- `POST /notify` - Enviar notificación
-- `GET /stats` - Estadísticas de conexiones
-- `POST /clients/filter` - Obtener clientes por filtros
+- `POST /emit` - Enviar evento a un servicio específico
+- `GET /stats` - Estadísticas de conexiones por servicio
+- `POST /clients/filter` - Obtener clientes por filtros en un servicio
 - `GET /health` - Estado del servidor
+
+## Eventos Socket.IO
+
+### Cliente → Servidor
+- `register_filters` - Registrar filtros del cliente
+- `update_filters` - Actualizar filtros
+- `get_filters` - Obtener filtros actuales
+
+### Servidor → Cliente
+- `notification` - Notificación recibida
+- `filters_registered` - Confirmación de registro
+- `filters_updated` - Confirmación de actualización
+- `error` - Mensaje de error
+
+## Estructura de conexión
+
+Los clientes se conectan a: `ws://localhost:3000/{service}`
+
+Ejemplos:
+- `ws://localhost:3000/orders`
+- `ws://localhost:3000/inventory`
+- `ws://localhost:3000/notifications`
 
 ## Ejemplo de Filtros
 
-Un cliente con filtros:
+Un cliente conectado a `/orders` con filtros:
+\`\`\`json
+{"business_id": 1, "user_id": 123}
+\`\`\`
 
-```json
-{ "business_id": 1, "service_id": 2, "user_type": "admin" }
-```
-
-Recibirá notificaciones enviadas con:
-
+Recibirá eventos enviados a servicio `orders` con:
 - `{"business_id": 1}` ✅
-- `{"business_id": 1, "service_id": 2}` ✅
-- `{"business_id": 1, "service_id": 3}` ❌
+- `{"business_id": 1, "user_id": 123}` ✅
 - `{"business_id": 2}` ❌
-
-## Archivos incluidos
-
-- `server.js` - Servidor WebSocket principal
-- `public/index.html` - Cliente web de prueba
-- `public/client.js` - Lógica del cliente web
-- `client-example.js` - Cliente Node.js de ejemplo
-- `notification-sender.js` - Script para enviar notificaciones
+- Eventos enviados a otros servicios ❌
