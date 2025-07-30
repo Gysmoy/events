@@ -13,23 +13,23 @@ Servicio backend en Node.js con Socket.IO que implementa un sistema de filtros p
 
 ## Instalación
 
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 ## Uso
 
 ### Iniciar el servidor
 
-\`\`\`bash
+```bash
 npm start
 # o para desarrollo
 npm run dev
-\`\`\`
+```
 
 ### Conectar un cliente por path
 
-\`\`\`javascript
+```javascript
 const io = require('socket.io-client');
 // Conectar al servicio específico
 const socket = io('http://localhost:3000/orders');
@@ -49,11 +49,11 @@ socket.on('notification', (data) => {
 socket.on('message', (data) => {
   console.log('Mensaje:', data);
 });
-\`\`\`
+```
 
 ### Enviar eventos
 
-\`\`\`bash
+```bash
 curl -X POST http://localhost:3000/emit \
   -H "Content-Type: application/json" \
   -d '{
@@ -62,7 +62,7 @@ curl -X POST http://localhost:3000/emit \
     "eventType": "notification",
     "data": {"title": "Nuevo pedido", "orderId": 12345}
   }'
-\`\`\`
+```
 
 ## API Endpoints
 
@@ -96,9 +96,9 @@ Ejemplos:
 ## Ejemplo de Filtros
 
 Un cliente conectado a `/orders` con filtros:
-\`\`\`json
+```json
 {"business_id": 1, "user_id": 123}
-\`\`\`
+```
 
 Recibirá eventos enviados a servicio `orders` con:
 - `{"business_id": 1}` ✅
