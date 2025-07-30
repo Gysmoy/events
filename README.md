@@ -13,19 +13,19 @@ Servicio backend en Node.js con WebSockets nativos que implementa un sistema de 
 
 ## Instalación
 
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 ## Uso
 
 ### Iniciar el servidor
 
-\`\`\`bash
+```bash
 npm start
 # o para desarrollo
 npm run dev
-\`\`\`
+```
 
 ### Abrir cliente de prueba
 
@@ -33,32 +33,34 @@ Visita: http://localhost:3000
 
 ### Conectar cliente programáticamente
 
-\`\`\`javascript
+```javascript
 const ws = new WebSocket('ws://localhost:3000');
 
-ws.onopen = function() {
-    // Registrar filtros
-    ws.send(JSON.stringify({
-        type: 'register_filters',
-        data: {
-            business_id: 1,
-            service_id: 2,
-            user_type: 'admin'
-        }
-    }));
+ws.onopen = function () {
+  // Registrar filtros
+  ws.send(
+    JSON.stringify({
+      type: 'register_filters',
+      data: {
+        business_id: 1,
+        service_id: 2,
+        user_type: 'admin',
+      },
+    })
+  );
 };
 
-ws.onmessage = function(event) {
-    const message = JSON.parse(event.data);
-    if (message.type === 'notification') {
-        console.log('Notificación:', message.data);
-    }
+ws.onmessage = function (event) {
+  const message = JSON.parse(event.data);
+  if (message.type === 'notification') {
+    console.log('Notificación:', message.data);
+  }
 };
-\`\`\`
+```
 
 ### Enviar notificaciones
 
-\`\`\`bash
+```bash
 curl -X POST http://localhost:3000/notify \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -66,13 +68,13 @@ curl -X POST http://localhost:3000/notify \\
     "message": "Nuevo pedido recibido",
     "data": {"orderId": 12345}
   }'
-\`\`\`
+```
 
 ## Protocolo WebSocket
 
 ### Mensajes Cliente → Servidor
 
-\`\`\`javascript
+```javascript
 // Registrar filtros
 {
   "type": "register_filters",
@@ -81,7 +83,7 @@ curl -X POST http://localhost:3000/notify \\
 
 // Actualizar filtros
 {
-  "type": "update_filters", 
+  "type": "update_filters",
   "data": {"business_id": 1, "service_id": 3}
 }
 
@@ -96,11 +98,11 @@ curl -X POST http://localhost:3000/notify \\
   "type": "ping",
   "data": {}
 }
-\`\`\`
+```
 
 ### Mensajes Servidor → Cliente
 
-\`\`\`javascript
+```javascript
 // Conexión establecida
 {
   "type": "connected",
@@ -125,32 +127,34 @@ curl -X POST http://localhost:3000/notify \\
   "data": {"message": "Filtros inválidos"},
   "timestamp": "2024-01-01T12:00:00.000Z"
 }
-\`\`\`
+```
 
 ## API REST
 
-- \`POST /notify\` - Enviar notificación
-- \`GET /stats\` - Estadísticas de conexiones  
-- \`POST /clients/filter\` - Obtener clientes por filtros
-- \`GET /health\` - Estado del servidor
+- `POST /notify` - Enviar notificación
+- `GET /stats` - Estadísticas de conexiones
+- `POST /clients/filter` - Obtener clientes por filtros
+- `GET /health` - Estado del servidor
 
 ## Ejemplo de Filtros
 
 Un cliente con filtros:
-\`\`\`json
-{"business_id": 1, "service_id": 2, "user_type": "admin"}
-\`\`\`
+
+```json
+{ "business_id": 1, "service_id": 2, "user_type": "admin" }
+```
 
 Recibirá notificaciones enviadas con:
-- \`{"business_id": 1}\` ✅
-- \`{"business_id": 1, "service_id": 2}\` ✅  
-- \`{"business_id": 1, "service_id": 3}\` ❌
-- \`{"business_id": 2}\` ❌
+
+- `{"business_id": 1}` ✅
+- `{"business_id": 1, "service_id": 2}` ✅
+- `{"business_id": 1, "service_id": 3}` ❌
+- `{"business_id": 2}` ❌
 
 ## Archivos incluidos
 
-- \`server.js\` - Servidor WebSocket principal
-- \`public/index.html\` - Cliente web de prueba
-- \`public/client.js\` - Lógica del cliente web
-- \`client-example.js\` - Cliente Node.js de ejemplo
-- \`notification-sender.js\` - Script para enviar notificaciones
+- `server.js` - Servidor WebSocket principal
+- `public/index.html` - Cliente web de prueba
+- `public/client.js` - Lógica del cliente web
+- `client-example.js` - Cliente Node.js de ejemplo
+- `notification-sender.js` - Script para enviar notificaciones
