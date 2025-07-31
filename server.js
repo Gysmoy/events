@@ -62,7 +62,7 @@ function initializeService(service) {
 // Configurar namespace dinámico para cada servicio
 io.of(/^\/(\w+)?$/).on("connection", (socket) => {
     // Extraer el nombre del servicio del namespace
-    const service = socket.nsp.name.substring(1) // Remover el '/' inicial
+    const service = socket?.nsp?.name?.substring(1) ?? 'atalaya' // Remover el '/' inicial
 
     console.log(`Cliente conectado al servicio '${service}': ${socket.id}`)
 
