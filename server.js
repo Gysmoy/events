@@ -60,7 +60,7 @@ function initializeService(service) {
 }
 
 // Configurar namespace dinámico para cada servicio
-io.of(/^\/\w+$/).on("connection", (socket) => {
+io.of(/^\/(\w+)?$/).on("connection", (socket) => {
     // Extraer el nombre del servicio del namespace
     const service = socket.nsp.name.substring(1) // Remover el '/' inicial
 
