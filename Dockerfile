@@ -12,13 +12,7 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
-# Crear usuario no privilegiado
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
 
-# Cambiar la propiedad de los archivos
-RUN chown -R nodejs:nodejs /app
-USER nodejs
 
 # Exponer el puerto
 EXPOSE 3000
