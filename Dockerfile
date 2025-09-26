@@ -15,7 +15,7 @@ COPY . .
 
 
 # Exponer el puerto
-EXPOSE 3000
+EXPOSE 3001
 
 # Comando para ejecutar la aplicación
 CMD ["node", "server.js"]
