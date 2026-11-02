@@ -40,7 +40,7 @@ const socket = io('https://events.devex.pe/devex', {
 
 The port is published only on `127.0.0.1`; nginx is the public entry point. Events can reach anyone holding a valid token, so send signals rather than sensitive data.
 
-**Deploy:** the GitHub Action does not target the production server. On devex-server run `git pull --ff-only && docker compose up -d --build` in `/var/docker/events`.
+**Deploy:** a push to `main` deploys to devex-server through the GitHub Action. Its SSH key is restricted to `/usr/local/sbin/deploy-events.sh` on the server, so it cannot run anything else. To deploy by hand, run that script as root.
 
 ## Stack
 

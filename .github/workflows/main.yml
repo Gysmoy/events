@@ -1,28 +1,28 @@
-name: Deploy Socket to Contabo
+name: Deploy events to devex-server
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency: events-deploy
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Execute Docker Commands on Server
+      # La llave solo puede ejecutar /usr/local/sbin/deploy-events.sh en el servidor:
+      # no se envía ningún comando porque el servidor ya fuerza ese.
+      - name: Deploy on devex-server
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PASS: ${{ secrets.SSH_PASSWORD }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
-            cd /var/docker/events
-            git pull
-            docker compose build
-            docker compose up -d
-            curl https://whatsapp.sode.pe/api/github/Events
-          EOF
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST"
