@@ -13,6 +13,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - EVENTS_SECRET=${EVENTS_SECRET:?Falta EVENTS_SECRET en .env}
+      - ALLOWED_SERVICES=${ALLOWED_SERVICES:-devex}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://devex.pe}
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     networks:
       - websocket-network
     healthcheck:

@@ -20,6 +20,28 @@ Matching clients receive the event
 
 **Filter matching rule:** A client receives an event if **all** key-value pairs in the notification's `filters` are present in the client's registered filters. The client may have *more* filters, but none of the required ones can differ.
 
+## Security
+
+Only DevEx services may use this server. It refuses to start without `EVENTS_SECRET`, which lives in `.env` (never committed) and is shared with the backends.
+
+| Who | Requirement |
+|---|---|
+| `POST /emit`, `GET /stats`, `POST /clients/filter` | `Authorization: Bearer <EVENTS_SECRET>` |
+| Socket connections | `Origin` in `ALLOWED_ORIGINS`, a namespace in `ALLOWED_SERVICES`, and a signed token in `auth.token` |
+| `GET /health` | Public, returns only `{"status":"OK"}` |
+
+The socket token is `<expires unix seconds>.<hex hmac-sha256 of "service.expires" with EVENTS_SECRET>`. Each backend signs it for its logged-in users and it is only checked when connecting, so keep it short-lived and fetch a new one on each connection:
+
+```javascript
+const socket = io('https://events.devex.pe/devex', {
+  auth: (send) => fetch('/api/events/token').then(r => r.json()).then(r => send({ token: r.data.token })),
+});
+```
+
+The port is published only on `127.0.0.1`; nginx is the public entry point. Events can reach anyone holding a valid token, so send signals rather than sensitive data.
+
+**Deploy:** the GitHub Action does not target the production server. On devex-server run `git pull --ff-only && docker compose up -d --build` in `/var/docker/events`.
+
 ## Stack
 
 - **Runtime:** Node.js
