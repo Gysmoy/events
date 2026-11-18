@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -56,7 +57,9 @@ async fn run(config: Config) -> std::io::Result<()> {
     println!("Orígenes permitidos: {origins}");
 
     let stopping = Arc::new(Notify::new());
-    let server = axum::serve(listener, router).with_graceful_shutdown(shutdown(state.io, stopping.clone()));
+    // Con la IP del peer en cada petición: los topes por IP la necesitan para saber si viene de nginx
+    let service = router.into_make_service_with_connect_info::<SocketAddr>();
+    let server = axum::serve(listener, service).with_graceful_shutdown(shutdown(state.io, stopping.clone()));
 
     // Cierre ordenado, pero con tope: si algo queda colgado se sale igual
     tokio::select! {

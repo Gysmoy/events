@@ -15,6 +15,8 @@ services:
       - EVENTS_SECRET=${EVENTS_SECRET:?Falta EVENTS_SECRET en .env}
       - ALLOWED_SERVICES=${ALLOWED_SERVICES:-devex}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://devex.pe}
+      - MAX_CONNECTIONS_PER_IP=${MAX_CONNECTIONS_PER_IP:-50}
+      - HANDSHAKES_PER_MINUTE_PER_IP=${HANDSHAKES_PER_MINUTE_PER_IP:-60}
     logging:
       driver: json-file
       options:

@@ -42,6 +42,8 @@ const socket = io('https://events.devex.pe/devex', {
 
 The port is published only on `127.0.0.1`; nginx is the public entry point. Events can reach anyone holding a valid token, so send signals rather than sensitive data.
 
+**Per-IP limits.** Each client IP can open `HANDSHAKES_PER_MINUTE_PER_IP` new sessions per minute (`429` beyond that) and keep `MAX_CONNECTIONS_PER_IP` sockets connected (`Demasiadas conexiones` beyond that). IPv6 clients are grouped by their `/64`. A session that never joins a namespace is closed after 15 seconds. The client IP is read from `X-Real-IP` (or the last `X-Forwarded-For` entry) only when the request comes from a private or loopback address, i.e. from nginx; a request whose real IP is unknown is not limited, so a proxy that does not forward the IP can never make every client share one quota.
+
 **Deploy:** a push to `main` fires the deploy hook of the DevEx panel (Servicios Docker). Its runner resets the server checkout to `origin/main`, runs `docker compose up -d --build` and waits for the healthcheck before reporting the result. There is no CI: run the tests (see Development) before pushing.
 
 ## Configuration
@@ -52,6 +54,8 @@ The port is published only on `127.0.0.1`; nginx is the public entry point. Even
 | `ALLOWED_SERVICES` | `devex` | Comma-separated list. One Socket.IO namespace per service. |
 | `ALLOWED_ORIGINS` | `https://devex.pe` | Comma-separated list of browser origins allowed to open a socket. |
 | `PORT` | `3000` | HTTP port. |
+| `MAX_CONNECTIONS_PER_IP` | `50` | Sockets one client IP may keep open at the same time. `0` disables it. |
+| `HANDSHAKES_PER_MINUTE_PER_IP` | `60` | New Socket.IO sessions one client IP may open per minute (as a burst, then one per second). `0` disables it. |
 
 ## Stack
 

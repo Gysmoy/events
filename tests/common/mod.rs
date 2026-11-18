@@ -1,10 +1,12 @@
 // Utilidades compartidas por las pruebas de integración.
 #![allow(dead_code)]
 
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
+use axum::extract::ConnectInfo;
 use axum::http::{HeaderMap, Method, Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::Value;
@@ -18,12 +20,20 @@ pub const SECRET: &str = "test-secret";
 pub const ORIGIN: &str = "https://devex.pe";
 
 pub fn test_app() -> (Router, AppState) {
-    app(Config {
+    test_app_with(|_| {})
+}
+
+pub fn test_app_with(adjust: impl FnOnce(&mut Config)) -> (Router, AppState) {
+    let mut config = Config {
         secret: SECRET.into(),
         allowed_services: vec!["devex".into()],
         allowed_origins: vec![ORIGIN.into(), "https://otro.pe".into()],
         port: 0,
-    })
+        max_connections_per_ip: 50,
+        handshakes_per_minute_per_ip: 60,
+    };
+    adjust(&mut config);
+    app(config)
 }
 
 pub struct Reply {
@@ -88,6 +98,14 @@ pub fn token(service: &str) -> String {
     format!("{expires}.{}", sign(SECRET, service, &expires))
 }
 
+// Agrega el peer TCP a la petición, como into_make_service_with_connect_info
+pub fn with_peer(mut request: Request<Body>, peer: Option<SocketAddr>) -> Request<Body> {
+    if let Some(peer) = peer {
+        request.extensions_mut().insert(ConnectInfo(peer));
+    }
+    request
+}
+
 // Cliente Engine.IO por long-polling, suficiente para probar el protocolo sin red
 pub struct Polling {
     router: Router,
@@ -97,13 +115,25 @@ pub struct Polling {
 
 impl Polling {
     pub async fn open(router: &Router) -> Polling {
+        Self::open_from(router, None).await
+    }
+
+    // Handshake como si nginx lo reenviara con X-Real-IP
+    pub async fn open_from(router: &Router, real_ip: Option<&str>) -> Polling {
+        Self::open_with_peer(router, real_ip, None).await
+    }
+
+    // Handshake con el peer TCP que axum pondría en ConnectInfo
+    pub async fn open_with_peer(router: &Router, real_ip: Option<&str>, peer: Option<SocketAddr>) -> Polling {
+        let mut headers = vec![("origin", ORIGIN)];
+        if let Some(ip) = real_ip {
+            headers.push(("x-real-ip", ip));
+        }
         let reply = call(
             router,
-            request(
-                Method::GET,
-                "/socket.io/?EIO=4&transport=polling",
-                &[("origin", ORIGIN)],
-                "",
+            with_peer(
+                request(Method::GET, "/socket.io/?EIO=4&transport=polling", &headers, ""),
+                peer,
             ),
         )
         .await;

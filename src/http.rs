@@ -1,15 +1,16 @@
 // Endpoints REST para los backends y la entrada de Socket.IO.
 
+use std::net::{IpAddr, SocketAddr};
+
 use axum::Router;
 use axum::body::Body;
-use axum::extract::{Request, State};
-use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
+use axum::extract::{ConnectInfo, Request, State};
+use axum::http::{Extensions, HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use serde_json::{Value, json};
 use socketioxide::layer::SocketIoLayer;
-use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 
@@ -18,6 +19,7 @@ use crate::auth::{bearer_token, safe_equal};
 use crate::body::{BodyError, read_json};
 use crate::config::Config;
 use crate::filters::{complete_filters, is_js_falsy, is_js_object};
+use crate::limits::client_ip;
 use crate::sockets::{self, NO_AUTORIZADO};
 
 const SERVICIO_INVALIDO: &str = "Se requiere un nombre de servicio válido";
@@ -28,7 +30,7 @@ pub fn router(state: AppState, socket_layer: SocketIoLayer) -> Router {
     // CORS y control de Origin solo para Socket.IO; las rutas REST no llevan CORS
     let socket_io = ServiceBuilder::new()
         .layer(cors(&state.config))
-        .layer(middleware::from_fn_with_state(state.config.clone(), check_origin))
+        .layer(middleware::from_fn_with_state(state.clone(), guard_handshake))
         .layer(socket_layer)
         .service(Router::<()>::new());
 
@@ -59,9 +61,10 @@ fn cors(config: &Config) -> CorsLayer {
         .allow_headers(AllowHeaders::mirror_request())
 }
 
-// allowRequest: el handshake de Engine.IO (sin sid) exige un Origin permitido.
-// Las peticiones de una sesión ya abierta (polling o el upgrade a websocket) pasan.
-async fn check_origin(State(config): State<Arc<Config>>, request: Request, next: Next) -> Response {
+// allowRequest: el handshake de Engine.IO (sin sid) exige un Origin permitido y
+// respeta el tope de handshakes por IP. Las peticiones de una sesión ya abierta
+// (polling o el upgrade a websocket) pasan.
+async fn guard_handshake(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let is_handshake = !request
         .uri()
         .query()
@@ -72,15 +75,30 @@ async fn check_origin(State(config): State<Arc<Config>>, request: Request, next:
     if is_handshake {
         let mut origins = request.headers().get_all(header::ORIGIN).iter();
         let allowed = match (origins.next(), origins.next()) {
-            (Some(origin), None) => origin.to_str().is_ok_and(|origin| config.allows_origin(origin)),
+            (Some(origin), None) => origin.to_str().is_ok_and(|origin| state.config.allows_origin(origin)),
             _ => false,
         };
         if !allowed {
             // Misma respuesta que Engine.IO para allowRequest rechazado
             return json_response(StatusCode::FORBIDDEN, &json!({ "code": 4, "message": "Forbidden" }));
         }
+
+        let ip = client_ip(request.headers(), peer_ip(request.extensions()));
+        if ip.is_some_and(|ip| !state.handshakes.allow(ip)) {
+            return json_response(
+                StatusCode::TOO_MANY_REQUESTS,
+                &json!({ "code": 4, "message": "Demasiadas conexiones" }),
+            );
+        }
     }
     next.run(request).await
+}
+
+// IP del peer TCP que axum deja en las extensiones (into_make_service_with_connect_info)
+pub fn peer_ip(extensions: &Extensions) -> Option<IpAddr> {
+    extensions
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(addr)| addr.ip())
 }
 
 // Por qué se rechaza una petición antes de llegar a las validaciones

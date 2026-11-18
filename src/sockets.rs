@@ -1,6 +1,7 @@
 // Capa Socket.IO: un namespace por servicio permitido, autenticado con token firmado.
 
 use std::future::{Ready, ready};
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,16 +15,22 @@ use socketioxide::socket::Sid;
 use crate::auth::{is_valid_socket_token, now_seconds};
 use crate::config::Config;
 use crate::filters::{complete_filters, is_js_object};
+use crate::http::peer_ip;
+use crate::limits::{client_ip, limit_key};
 use crate::state::Registry;
 
 pub const NO_AUTORIZADO: &str = "No autorizado";
+pub const DEMASIADAS_CONEXIONES: &str = "Demasiadas conexiones";
 const FILTROS_INVALIDOS: &str = "Los filtros deben ser un objeto válido";
 const SIN_FILTROS: &str = "No hay filtros registrados para este cliente";
 
 // Mismos valores por defecto que socket.io 4
 const PING_INTERVAL: Duration = Duration::from_secs(25);
 const PING_TIMEOUT: Duration = Duration::from_secs(20);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(45);
+// Tiempo que una sesión puede estar abierta sin entrar a un namespace (socket.io usa 45 s).
+// El panel en frío tarda ~6 s entre el handshake y pedir su token: 15 s le dan margen y
+// una sesión sin token se cierra 3 veces antes. Si se pasa, el cliente reconecta solo.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 // maxHttpBufferSize: 1e6 bytes, también para mensajes por websocket
 pub const MAX_HTTP_BUFFER_SIZE: usize = 1_000_000;
 
@@ -74,13 +81,41 @@ pub fn layer(config: &Arc<Config>, registry: &Arc<Registry>) -> (SocketIoLayer, 
                     .and_then(Value::as_str);
                 let valid =
                     token.is_some_and(|token| is_valid_socket_token(&config.secret, service, token, now_seconds()));
-                ready(if valid { Ok(()) } else { Err(NO_AUTORIZADO) })
+                if !valid {
+                    return ready(Err(NO_AUTORIZADO));
+                }
+                if over_connection_limit(&socket, config.max_connections_per_ip) {
+                    return ready(Err(DEMASIADAS_CONEXIONES));
+                }
+                ready(Ok(()))
             }
         };
         io.ns(format!("/{service}"), on_connect.with(authenticate));
     }
 
     (layer, io)
+}
+
+// IP (agrupada) del cliente según la petición del handshake de este socket
+fn socket_ip(socket: &SocketRef) -> Option<IpAddr> {
+    let parts = socket.req_parts();
+    client_ip(&parts.headers, peer_ip(&parts.extensions)).map(limit_key)
+}
+
+// ¿Esta IP ya tiene el máximo de conexiones abiertas en el namespace? Se cuentan en
+// vivo los sockets conectados: el que entra todavía no está en la lista. Sin IP
+// conocida (o con tope 0) no se limita.
+fn over_connection_limit(socket: &SocketRef, max: u32) -> bool {
+    let Some(ip) = socket_ip(socket).filter(|_| max > 0) else {
+        return false;
+    };
+    let open = socket
+        .broadcast()
+        .sockets()
+        .iter()
+        .filter(|other| socket_ip(other) == Some(ip))
+        .count();
+    open >= max as usize
 }
 
 // Remover el '/' inicial del namespace
