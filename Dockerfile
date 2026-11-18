@@ -1,22 +1,37 @@
-FROM node:20
+# Compilación: binario estático (musl) con la versión de Rust fijada
+FROM rust:1.100.0-alpine3.24 AS builder
 
-# Establecer directorio de trabajo
+# El servidor compila con poca RAM: se limita el paralelismo (se puede cambiar con --build-arg)
+ARG CARGO_BUILD_JOBS=2
+ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
+
+RUN apk add --no-cache musl-dev
+
 WORKDIR /app
 
-# Copiar package.json y package-lock.json (si existe)
-COPY package*.json ./
+# Primero solo las dependencias: esta capa queda en caché mientras no cambien Cargo.toml ni Cargo.lock
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src \
+    && echo "fn main() {}" > src/main.rs \
+    && touch src/lib.rs \
+    && cargo build --release --locked \
+    && rm -rf src
 
-# Instalar dependencias
-RUN npm install 
+# Después el código: touch para que cargo no confunda los fuentes con el stub ya compilado
+COPY src ./src
+RUN touch src/main.rs src/lib.rs \
+    && cargo build --release --locked
 
-# Copiar el código fuente
-COPY . .
+# Ejecución: alpine mínimo (busybox wget para el healthcheck), sin root
+FROM alpine:3.24
 
+RUN adduser -D -H -u 10001 events
 
+COPY --from=builder /app/target/release/websocket-filter-service /usr/local/bin/websocket-filter-service
 
-# Exponer el puerto
-EXPOSE 3001
+USER events
 
-# Comando para ejecutar la aplicación
-CMD ["node", "server.js"]
+ENV PORT=3000
+EXPOSE 3000
 
+CMD ["websocket-filter-service"]

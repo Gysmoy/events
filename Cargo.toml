@@ -1,0 +1,35 @@
+[package]
+name = "websocket-filter-service"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.100"
+description = "Servicio WebSocket con sistema de filtros para notificaciones dirigidas"
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+hex = "0.4.3"
+hmac = "0.13.0"
+indexmap = "2.14.2"
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.11.1"
+socketioxide = "0.18.9"
+subtle = "2.6.1"
+time = "0.3.55"
+tokio = { version = "1.54.1", features = ["macros", "net", "rt", "signal", "sync", "time"] }
+tower = { version = "0.5.3", default-features = false }
+tower-http = { version = "0.7.1", default-features = false, features = ["cors"] }
+
+[dev-dependencies]
+http-body-util = "0.1.5"
+tower = { version = "0.5.3", features = ["util"] }
+
+[profile.release]
+# Sin LTO gorda ni un solo codegen unit: el build corre en el servidor chico y no debe agotar su RAM.
+lto = false
+codegen-units = 16
+opt-level = 3
+strip = "symbols"
+# Un panic en una tarea solo mata esa tarea, no el servidor.
+panic = "unwind"
