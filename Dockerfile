@@ -9,12 +9,13 @@ RUN apk add --no-cache musl-dev
 
 WORKDIR /app
 
-# Primero solo las dependencias: esta capa queda en caché mientras no cambien Cargo.toml ni Cargo.lock
+# Primero solo las dependencias: esta capa queda en caché mientras no cambien Cargo.toml ni Cargo.lock.
+# Con el main vacío todas las dependencias salen "sin usar": esos avisos se callan solo en este paso.
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src \
     && echo "fn main() {}" > src/main.rs \
     && touch src/lib.rs \
-    && cargo build --release --locked \
+    && CARGO_BUILD_WARNINGS=allow cargo build --release --locked \
     && rm -rf src
 
 # Después el código: touch para que cargo no confunda los fuentes con el stub ya compilado
